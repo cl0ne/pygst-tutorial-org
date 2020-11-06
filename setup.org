@@ -17,9 +17,11 @@
 
 #+MACRO: gstfunc [[https://lazka.github.io/pgi-docs/Gst-1.0/functions.html#Gst.$1][=Gst.$1()=]]
 #+MACRO: gstclass [[https://lazka.github.io/pgi-docs/Gst-1.0/classes/$1.html][=Gst.$1=]]
+#+MACRO: gstmethod [[https://lazka.github.io/pgi-docs/Gst-1.0/classes/$1.html#Gst.$1.$2][=$2()=]]
 #+MACRO: gststruct [[https://lazka.github.io/pgi-docs/Gst-1.0/structs/$1.html][=Gst.$1=]]
 #+MACRO: gstflag [[https://lazka.github.io/pgi-docs/Gst-1.0/flags.html#Gst.$1][=Gst.$1=]]
 #+MACRO: gstenum [[https://lazka.github.io/pgi-docs/Gst-1.0/enums.html#Gst.$1][=Gst.$1=]]
+#+MACRO: gstenumvalue [[https://lazka.github.io/pgi-docs/Gst-1.0/enums.html#Gst.$1.$2][=$2=]]
 #+MACRO: gstconst [[https://lazka.github.io/pgi-docs/Gst-1.0/constants.html#Gst.$1][=Gst.$1=]]
 
 * COMMENT setup
