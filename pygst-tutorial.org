@@ -127,8 +127,7 @@ To get information about a =playbin= run:
 
 This figure shows how playbin is built internally. The "optional stuff" are things that could be platform specific or things that you may set with properties.
 
-
-#+header: :file (by-backend (latex "playbin-block.pdf") (t "playbin-block.svg"))
+#+header: :file (concat "playbin-block." (by-backend (latex "pdf") (t "svg")))
 #+BEGIN_SRC ditaa
        /--------------------------------------------------------------------\
        |                           +----------------+   /---------------\   |
@@ -145,9 +144,6 @@ uri ----->-+  uridecodebin  |                                               |
        \--------------------------------------------------------------------/
 #+END_SRC
 
-#+ATTR_HTML: :width 100%
-#+RESULTS:
-[[file:playbin-block.svg]]
 
 The "*uri*" property should take any possible protocol supported by your GStreamer plugins. One nice feature is that you may switch the sinks out for your own bins as shown below. Playbin always tries to set up the best possible pipeline for your specific environment so if you don't need any special features that are not implemented in playbin, it should in most cases just work "out of the box". Ok, time for a few examples.
 
@@ -234,7 +230,7 @@ The first example here starts with the audio player from section [[sec:playbin]]
 
 Conceptually this pipeline looks like:
 
-#+header: :file (by-backend (latex "pipeline-block.pdf") (t "pipeline-block.svg"))
+#+header: :file (concat "pipeline-block." (by-backend (latex "pdf") (t "svg")))
 #+BEGIN_SRC ditaa
                                  Example Gst.Pipeline
            /----------------------------------------------------------------------\
@@ -252,9 +248,6 @@ file.mp3-->---+ filesrc +-->--+  mpegaudioparse  +-->--+  mpg123audiodec  +-->-+
            \----------------------------------------------------------------------/
 #+END_SRC
 
-#+ATTR_HTML: :width 100%
-#+RESULTS:
-[[file:pipeline-block.svg]]
 
 Done in Python this would look like =pipeline-example.py=:
 
@@ -265,7 +258,7 @@ Done in Python this would look like =pipeline-example.py=:
 
 The next example is playing MPEG2 videos. Some demuxers, such as =mpegpsdemux=, uses dynamic pads which are created at runtime and therefor you can't link between the demuxer and the next element in the pipeline before the pad has been created at runtime. Watch out for the =demuxer_callback()= method below.
 
-#+header: :file (by-backend (latex "pipeline-branch-block.pdf") (t "pipeline-branch-block.svg"))
+#+header: :file (concat "pipeline-branch-block." (by-backend (latex "pdf") (t "svg")))
 #+BEGIN_SRC ditaa
                                          Gst.Pipeline
          +--------------------------------------------------------------------------+
@@ -301,10 +294,6 @@ file.mpg-->-+ filesrc +->-+ mpegpsdemux |                                       
          +--------------------------------------------------------------------------+
 #+END_SRC
 
-#+ATTR_HTML: :width 100%
-#+RESULTS:
-[[file:pipeline-branch-block.png]]
-
 
 #+HTML: <a href="pipeline-branch-example.py">pipeline-branch-example.py</a>
 #+INCLUDE: pipeline-branch-example.py src python
@@ -317,7 +306,7 @@ The elements in a pipeline connects to each other with pads and that's what the 
 As their names imply, a /src/ is an object that is "sending" data and a /sink/ is an object that is "receiving" data. These objects connect to each other with /pads/. Pads could be either /src/ or /sink/. Most elements have both /src/ and /sink/ pads. For example, the =mpg123audiodec= MP3 decoder element looks something like the figure below:
 
 
-#+header: :file (by-backend (latex "sink-src-block.pdf") (t "sink-src-block.svg"))
+#+header: :file (concat "sink-src-block." (by-backend (latex "pdf") (t "svg")))
 #+BEGIN_SRC ditaa
                      mpg123audiodec element
    +---------------------------------------------------------+
@@ -331,9 +320,6 @@ As their names imply, a /src/ is an object that is "sending" data and a /sink/ i
    +---------------------------------------------------------+
 #+END_SRC
 
-#+ATTR_HTML: :width 100%
-#+RESULTS:
-[[file:sink-src-block.png]]
 
 And as always if you want to know more about highlevel elements gst-inspect is your friend:
 
@@ -367,7 +353,7 @@ The micro-language used in this function call is that of the =gst-launch= comman
 <<subsec:ghost-pads>>
 When you do manually link pads with the =.link()= method make sure that you link a /src/-pad to a /sink/-pad. No rule though without exceptions. A {{{gstclass(GhostPad)}}} should be linked to a pad of the same kind as itself. We have already showed how a ghost pad works in the addition to example [[subsec:playbinvideo]]. A {{{gstclass(Bin)}}} can't link to other objects if you don't link a {{{gstclass(GhostPad)}}} to an element inside the bin. The =playbin-example-video.py= example in section [[subsec:playbinvideo]] should look something like this:
 
-#+header: :file (by-backend (latex "playbin-pads-block.pdf") (t "playbin-pads-block.svg"))
+#+header: :file (concat "playbin-pads-block." (by-backend (latex "pdf") (t "svg")))
 #+BEGIN_SRC ditaa
                                              Gst.Bin
    /---------------------------------------------------------------------------- - -
@@ -384,9 +370,6 @@ When you do manually link pads with the =.link()= method make sure that you link
    \---------------------------------------------------------------------------- - -
 #+END_SRC
 
-#+ATTR_HTML: :width 100%
-#+RESULTS:
-[[file:playbin-pads-block.svg]]
 
 And the ghostpad above should be created as type *"sink"*!
 
