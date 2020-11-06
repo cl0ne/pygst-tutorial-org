@@ -1,6 +1,6 @@
 #+TITLE: Python GStreamer Tutorial
-#+AUTHOR: Jens Persson and Ruben Gonzalez and Brett Viren
-#+VERSION: 1.0
+#+AUTHOR: Jens Persson, Ruben Gonzalez, Brett Viren, Vladislav Glinsky
+#+VERSION: 1.1
 #+DESCRIPTION: Rescued by from Internet death by [[https://github.com/rubenrua/GstreamerCodeSnippets][rubenrua]]
 #+SETUPFILE: setup.org
 
