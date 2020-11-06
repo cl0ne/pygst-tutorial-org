@@ -117,6 +117,8 @@ The [[https://gstreamer.freedesktop.org/documentation/playback/playbin.html][=pl
 #+RESULTS:
 : <__gi__.GstPlayBin object at 0x7fd8e88e6aa0 (GstPlayBin at 0x1c0cf00)>
 
+In order to benefit from handling of GStreamer-specific command line options, pass =sys.argv= to {{{gstfunc(init)}}} instead of =None=. It'll return command line arguments list with recognized =--gst-*= options removed. Full list of supported options you can get with =gst-inspect-1.0 --help-gst=. For example, to make debug output more verbose you can pass =--gst-debug-level= set to [[https://gstreamer.freedesktop.org/documentation/tutorials/basic/debugging-tools.html#the-debug-log][higher debug level]].
+
 To get information about a =playbin= run:
 
 #+BEGIN_SRC sh :eval no
@@ -198,7 +200,7 @@ And just to make things a little more complicated you can switch the =playbin='s
   self.player.set_property("video-sink", bin)
 #+END_SRC
 
-Add that code to the example above and you'll get a =timeoverlay= too. We'll talk more about [[https://gstreamer.freedesktop.org/documentation/application-development/basics/pads.html#ghost-pads]["ghost pads"]] later.
+Add that code to the example above and you'll get a =timeoverlay= too. We'll talk more about [[https://gstreamer.freedesktop.org/documentation/application-development/basics/pads.html#ghost-pads]["ghost pads"]] [[subsec:ghost-pads][later]].
 
 Here now adds a CLI example which plays music. It can be run it with:
 
@@ -343,7 +345,8 @@ There are many different ways to link elements together. In =pipeline-example.py
 
 The micro-language used in this function call is that of the =gst-launch= command line program.
 
-When you do manually link pads with the =.link()= method make sure that you link a /src/-pad to a /sink/-pad. No rule though without exceptions. A {{{gstclass(GhostPad)}}} should be linked to a pad of the same kind as itself. We have already showed how a ghost pad works in the addition to example 2.2. A {{{gstclass(Bin)}}} can't link to other objects if you don't link a {{{gstclass(GhostPad)}}} to an element inside the bin. The =playbin-example-video.py= example in section [[sec:playbin]] should look something like this:
+<<subsec:ghost-pads>>
+When you do manually link pads with the =.link()= method make sure that you link a /src/-pad to a /sink/-pad. No rule though without exceptions. A {{{gstclass(GhostPad)}}} should be linked to a pad of the same kind as itself. We have already showed how a ghost pad works in the addition to example [[subsec:playbinvideo]]. A {{{gstclass(Bin)}}} can't link to other objects if you don't link a {{{gstclass(GhostPad)}}} to an element inside the bin. The =playbin-example-video.py= example in section [[subsec:playbinvideo]] should look something like this:
 
 #+header: :file (by-backend (latex "playbin-pads-block.pdf") (t "playbin-pads-block.svg"))
 #+BEGIN_SRC ditaa
@@ -368,9 +371,9 @@ When you do manually link pads with the =.link()= method make sure that you link
 #+RESULTS:
 [[file:playbin-pads-block.svg]]
 
-And the ghostpad above should be created as type "sink"!!!
+And the ghostpad above should be created as type *"sink"*!
 
-Some pads are not always available and are only created when they are in use. Such pads are called "dynamical pads". The next example will show how to use dynamically created pads with an [[https://gstreamer.freedesktop.org/documentation/ogg/oggdemux.html][=oggdemux=]]. The link between the demuxer and the decoder is created with the =demuxer_callback()= method, which is called whenever a pad is created in the demuxer using the "=pad-added=" signal.
+Some pads are not always available and are only created when they are in use. Such pads are called [[https://gstreamer.freedesktop.org/documentation/application-development/basics/pads.html#dynamic-or-sometimes-pads]["dynamic pads"]]. The next example will show how to use dynamically created pads with an [[https://gstreamer.freedesktop.org/documentation/ogg/oggdemux.html][=oggdemux=]]. The link between the demuxer and the decoder is created with the =demuxer_callback()= method, which is called whenever a pad is created in the demuxer using the "=pad-added=" signal.
 
 #+HTML: <a href="dynamic-ghostpad-example.py">dynamic-ghostpad-example.py</a>
 #+INCLUDE: dynamic-ghostpad-example.py src python
@@ -381,12 +384,38 @@ Now after reading through these four chapters you could need a break. Happy hack
 <<sec:seeking>>
 
 Seeking in GStreamer is done with the {{{gstmethod(Element,seek)}}} and {{{gstmethod(Element,seek_simple)}}} methods of {{{gstclass(Element)}}}.
-To be able to seek you will also need to tell GStreamer what kind of seek it should do. In the following example we will use a {{{gstenumvalue(Format,TIME)}}} constant from {{{gstenum(Format)}}} enum which will, as you may guess, request a time seek. We will also use the {{{gstmethod(Element,query_duration)}}} and {{{gstmethod(Element,query_position)}}} methods to get the file length and how long the file has currently played. GStreamer uses nanoseconds by default so you have to adjust to that.
+To be able to seek you will also need to tell GStreamer what kind of seek it should do. In the following example we will use a {{{gstenumvalue(Format,TIME)}}} constant from {{{gstenum(Format)}}} enum which will, as you may guess, request a time seek. We will also use the {{{gstmethod(Element,query_duration)}}} and {{{gstmethod(Element,query_position)}}} methods to get the file length and how long the file has currently played. GStreamer uses nanoseconds by default so you have to adjust to that. Note that we cannot request duration or current position until our pipeline reaches =PAUSED= or =PLAYING= state.
 
-In this next example we take the Vorbis-Player from example 4.1 and update it with some more stuff so it's able to seek and show duration and position.
+In this next example we take the Vorbis-Player from example [[sec:srcsinkpad]] and update it with some more stuff so it's able to seek and show duration and position.
 
 #+HTML: <a href="seeking-example.py">seeking-example.py</a>
 #+INCLUDE: seeking-example.py src python
+
+Methods {{{gstmethod(Element,query_duration)}}} and {{{gstmethod(Element,query_position)}}} are a convenience wrappers that will create corresponding {{{gstclass(Query)}}} object and send it to {{{gstmethod(Element,query)}}} method. Since we repeatedly call {{{gstmethod(Element,query_position)}}} we can reuse query object by adding a couple of declarations to our =GTK_Main= class:
+
+#+BEGIN_SRC python :eval no
+    def __init__(self):
+        #...
+        self._position_query = Gst.Query.new_position(Gst.Format.TIME)
+        # ...
+
+    def _query_position(self):
+        self.player.query(self._position_query)
+        return self._position_query.parse_position()
+#+END_SRC
+
+After that we can replace
+
+#+BEGIN_SRC python :eval no
+self.player.query_position(Gst.Format.TIME)
+#+END_SRC
+
+with
+
+#+BEGIN_SRC python :eval no
+self._query_position()
+#+END_SRC
+
 
 * Capabilities
 <<sec:caps>>
@@ -440,19 +469,29 @@ The [[https://gstreamer.freedesktop.org/documentation/videomixer/index.html][=vi
                   ! alphacolor ! mix.
 #+END_SRC
 
-You have to make a [[./tvlogo.png][=tvlogo.png=]] image (100x100 px) to be able to run it. With the =videobox= element you can move the image around and add more alpha channels.
+You have to make a [[./tvlogo.png][=tvlogo.png=]] image (100x100 px) to be able to run it. With the [[https://gstreamer.freedesktop.org/documentation/videobox/index.html][=videobox=]] element you can move the image around and add more alpha channels.
 
 In the next example we take the now working Mpeg2-Player from section [[sec:pipeline]] and add the elements shown above.
 
 #+HTML: <a href="videomixer-example.py">videomixer-example.py</a>
 #+INCLUDE: videomixer-example.py src python
 
+/FIXME:/ playing won't stop at all because [[https://gstreamer.freedesktop.org/documentation/imagefreeze/index.html][=imagefreeze=]] produces infinite stream.
+
+Note that image overlay in most cases can be added much easier by replacing =imagefreeze= and =videomixer= pair with single [[https://gstreamer.freedesktop.org/documentation/gdkpixbuf/gdkpixbufoverlay.html][=gdkpixbufoverlay=]]. Earlier CLI example can be written as:
+
+#+BEGIN_SRC sh :eval no
+  gst-launch-1.0  videotestsrc ! video/x-raw, width=320, height=240 \
+                  ! gdkpixbufoverlay location=tvlogo.png \
+                                     alpha=0.5 offset-x=20 offset-y=10 \
+                  ! videoconvert ! autovideosink
+#+END_SRC
 
 
 * Webcam Viewer
 <<sec:webcam>>
 
-Remember to peal the tape off your web cam lens before testing this.
+Remember to peel the tape off your web cam lens before testing this.
 
 #+HTML: <a href="webcam-example.py">webcam-example.py</a>
 #+INCLUDE: webcam-example.py src python
