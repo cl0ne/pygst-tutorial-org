@@ -1,5 +1,8 @@
+.directory
 *~
+*.bak
 *.pyc
+_minted-*
 pygst-tutorial.tex
 pipeline-block.pdf
 pipeline-branch-block.pdf
@@ -9,4 +12,6 @@ sink-src-block.pdf
 *.ogg
 *.mp3
 *.mp4
+*.mpg
+*.ogv
 test.*
