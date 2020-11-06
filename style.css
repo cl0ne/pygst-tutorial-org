@@ -5,11 +5,20 @@
     color: red; 
     background: #faf8f0;
     font-family: "Courier New", Courier, monospace, sans-serif;
-    text-align: left;    
 }
 .example {
     color: black; 
     background: #daf8f0;
     font-family: "Courier New", Courier, monospace, sans-serif;
-    text-align: left;    
+}
+
+.org-svg {
+    width: auto;
+}
+
+figure {
+    overflow-x: auto;
+    margin-left: 0em;
+    margin-right: 0em;
+    text-align: center;
 }
