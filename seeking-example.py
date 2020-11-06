@@ -1,14 +1,26 @@
 #!/usr/bin/env python
 
-import os, thread, time
+import os
+import sys
 import gi
+
 gi.require_version("Gst", "1.0")
-from gi.repository import Gst, GObject, Gtk, Gdk
+gi.require_version("GstVideo", "1.0")
+gi.require_version("Gtk", "3.0")
+
+from gi.repository import Gst, GLib, Gtk  # noqa: E402
+
+
+NS_IN_SECOND = 1_000_000_000
+PREROLL_FINISHED = (Gst.State.READY, Gst.State.PAUSED, Gst.State.PLAYING)
+
 
 class GTK_Main:
-      
     def __init__(self):
-        window = Gtk.Window(Gtk.WindowType.TOPLEVEL)
+        self.position_refresh_id = None
+        self._duration_str = ""
+
+        window = Gtk.Window(type=Gtk.WindowType.TOPLEVEL)
         window.set_title("Vorbis-Player")
         window.set_default_size(500, -1)
         window.connect("destroy", Gtk.main_quit, "WM destroy")
@@ -20,129 +32,118 @@ class GTK_Main:
         vbox.add(hbox)
         buttonbox = Gtk.HButtonBox()
         hbox.pack_start(buttonbox, False, False, 0)
-        rewind_button = Gtk.Button("Rewind")
+        rewind_button = Gtk.Button(label="Rewind")
         rewind_button.connect("clicked", self.rewind_callback)
         buttonbox.add(rewind_button)
-        self.button = Gtk.Button("Start")
+        self.button = Gtk.Button(label="Start")
         self.button.connect("clicked", self.start_stop)
         buttonbox.add(self.button)
-        forward_button = Gtk.Button("Forward")
+        forward_button = Gtk.Button(label="Forward")
         forward_button.connect("clicked", self.forward_callback)
         buttonbox.add(forward_button)
         self.time_label = Gtk.Label()
         self.time_label.set_text("00:00 / 00:00")
         hbox.add(self.time_label)
         window.show_all()
-        
+
         self.player = Gst.Pipeline.new("player")
-        source = Gst.ElementFactory.make("filesrc", "file-source")
-        demuxer = Gst.ElementFactory.make("oggdemux", "demuxer")
+        make_element = Gst.ElementFactory.make
+        source = make_element("filesrc", "file-source")
+        demuxer = make_element("oggdemux", "demuxer")
         demuxer.connect("pad-added", self.demuxer_callback)
-        self.audio_decoder = Gst.ElementFactory.make("vorbisdec", "vorbis-decoder")
-        audioconv = Gst.ElementFactory.make("audioconvert", "converter")
-        audiosink = Gst.ElementFactory.make("autoaudiosink", "audio-output")
-        
-        for ele in [source, demuxer, self.audio_decoder, audioconv, audiosink]:
-            self.player.add(ele)
+        self.audio_decoder = make_element("vorbisdec", "vorbis-decoder")
+        audioconv = make_element("audioconvert", "converter")
+        audiosink = make_element("autoaudiosink", "audio-output")
+
+        for e in (source, demuxer, self.audio_decoder, audioconv, audiosink):
+            self.player.add(e)
         source.link(demuxer)
         self.audio_decoder.link(audioconv)
         audioconv.link(audiosink)
-        
+
         bus = self.player.get_bus()
         bus.add_signal_watch()
         bus.connect("message", self.on_message)
-        
+
     def start_stop(self, w):
+        self.time_label.set_text("00:00 / 00:00")
         if self.button.get_label() == "Start":
             filepath = self.entry.get_text().strip()
-            if os.path.isfile(filepath):
-                filepath = os.path.realpath(filepath)
-                self.button.set_label("Stop")
-                self.player.get_by_name("file-source").set_property("location", filepath)
-                self.player.set_state(Gst.State.PLAYING)
-                self.play_thread_id = thread.start_new_thread(self.play_thread, ())
-            else:
-                self.play_thread_id = None
-                self.player.set_state(Gst.State.NULL)
-                self.button.set_label("Start")
-                self.time_label.set_text("00:00 / 00:00")
-                
-    def play_thread(self):
-        play_thread_id = self.play_thread_id
-        Gdk.threads_enter()
-        self.time_label.set_text("00:00 / 00:00")
-        Gdk.threads_leave()
-        
-        while play_thread_id == self.play_thread_id:
-            try:
-                time.sleep(0.2)
-                dur_int = self.player.query_duration(Gst.Format.TIME, None)[0]
-                if dur_int == -1:
-                    continue
-                dur_str = self.convert_ns(dur_int)
-                Gdk.threads_enter()
-                self.time_label.set_text("00:00 / " + dur_str)
-                Gdk.threads_leave()
-                break
-            except:
-                pass
-                
-        time.sleep(0.2)
-        while play_thread_id == self.play_thread_id:
-            pos_int = self.player.query_position(Gst.Format.TIME, None)[0]
-            pos_str = self.convert_ns(pos_int)
-            if play_thread_id == self.play_thread_id:
-                Gdk.threads_enter()
-                self.time_label.set_text(pos_str + " / " + dur_str)
-                Gdk.threads_leave()
-            time.sleep(1)
-                
+            if not os.path.isfile(filepath):
+                return
+            filepath = os.path.realpath(filepath)
+            self.button.set_label("Stop")
+            filesrc = self.player.get_by_name("file-source")
+            filesrc.set_property("location", filepath)
+            self.player.set_state(Gst.State.PLAYING)
+        else:
+            GLib.source_remove(self.position_refresh_id)
+            self.position_refresh_id = None
+            self.player.set_state(Gst.State.NULL)
+            self.button.set_label("Start")
+
+    def position_refresh(self):
+        _, current_pos = self.player.query_position(Gst.Format.TIME)
+        pos_str = self.format_ns(current_pos)
+        self.time_label.set_text(pos_str + " / " + self._duration_str)
+        return GLib.SOURCE_CONTINUE
+
     def on_message(self, bus, message):
         t = message.type
-        if t == Gst.MessageType.EOS:
-            self.play_thread_id = None
-            self.player.set_state(Gst.State.NULL)
-            self.button.set_label("Start")
-            self.time_label.set_text("00:00 / 00:00")
+        if t == Gst.MessageType.STATE_CHANGED:
+            state_transition = message.parse_state_changed()
+            if state_transition != PREROLL_FINISHED:
+                return
+            _, duration = self.player.query_duration(Gst.Format.TIME)
+            self._duration_str = self.format_ns(duration)
+            self.time_label.set_text("00:00 / " + self._duration_str)
+            position_refresh_id = GLib.timeout_add(500, self.position_refresh)
+            self.position_refresh_id = position_refresh_id
+            return
         elif t == Gst.MessageType.ERROR:
+            error_source = message.src.name
             err, debug = message.parse_error()
-            print "Error: %s" % err, debug
-            self.play_thread_id = None
-            self.player.set_state(Gst.State.NULL)
-            self.button.set_label("Start")
-            self.time_label.set_text("00:00 / 00:00")
-            
+            print("Error from '{}':".format(error_source), err.message)
+            print("Debug info:", debug)
+        elif t != Gst.MessageType.EOS:
+            return
+        GLib.source_remove(self.position_refresh_id)
+        self.position_refresh_id = None
+        self.player.set_state(Gst.State.NULL)
+        self.button.set_label("Start")
+        self.time_label.set_text("00:00 / 00:00")
+
     def demuxer_callback(self, demuxer, pad):
-        adec_pad = self.audio_decoder.get_static_pad("sink")
-        pad.link(adec_pad)
-        
+        dec_pad = self.audio_decoder.get_static_pad("sink")
+        pad.link(dec_pad)
+
     def rewind_callback(self, w):
-        rc, pos_int = self.player.query_position(Gst.Format.TIME)
-        seek_ns = pos_int - 10 * 1000000000
-        if seek_ns < 0:
-            seek_ns = 0
-        print 'Backward: %d ns -> %d ns' % (pos_int, seek_ns)
-        self.player.seek_simple(Gst.Format.TIME, Gst.SeekFlags.FLUSH, seek_ns)
-        
+        _, current_pos = self.player.query_position(Gst.Format.TIME)
+        new_pos = max(0, current_pos - 10 * NS_IN_SECOND)
+        print("Backward:", current_pos, "ns -> ", new_pos, " ns")
+        self.player.seek_simple(Gst.Format.TIME, Gst.SeekFlags.FLUSH, new_pos)
+
     def forward_callback(self, w):
-        rc, pos_int = self.player.query_position(Gst.Format.TIME)
-        seek_ns = pos_int + 10 * 1000000000
-        print 'Forward: %d ns -> %d ns' % (pos_int, seek_ns)
-        self.player.seek_simple(Gst.Format.TIME, Gst.SeekFlags.FLUSH, seek_ns)
-        
-    def convert_ns(self, t):
+        _, current_pos = self.player.query_position(Gst.Format.TIME)
+        new_pos = current_pos + 10 * NS_IN_SECOND
+        print("Forward:", current_pos, "ns -> ", new_pos, " ns")
+        self.player.seek_simple(Gst.Format.TIME, Gst.SeekFlags.FLUSH, new_pos)
+
+    def format_ns(self, t):
         # This method was submitted by Sam Mason.
         # It's much shorter than the original one.
-        s,ns = divmod(t, 1000000000)
-        m,s = divmod(s, 60)
-        
+        s, ns = divmod(t, NS_IN_SECOND)
+        m, s = divmod(s, 60)
+
         if m < 60:
-            return "%02i:%02i" %(m,s)
+            return "%02i:%02i" % (m, s)
         else:
-            h,m = divmod(m, 60)
-            return "%i:%02i:%02i" %(h,m,s)
-            
-GObject.threads_init()
-Gst.init(None)        
-GTK_Main()
-Gtk.main()
+            h, m = divmod(m, 60)
+            return "%i:%02i:%02i" % (h, m, s)
+
+
+if __name__ == "__main__":
+    Gst.init(sys.argv)
+    Gtk.init(sys.argv)
+    GTK_Main()
+    Gtk.main()

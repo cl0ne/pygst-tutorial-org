@@ -36,16 +36,16 @@ Before getting started with Python some of the command line interface (CLI) prog
   man gst-inspect-1.0
 #+END_SRC
 
-If you are looking for an element but you don't know its name you can use it with grep. Getting the elements that handles ie mp3 is done like this:
+If you are looking for an element but you don't know its name you can use it with grep. For example, getting the elements that handle mp3 can be done like this:
 
 #+BEGIN_SRC sh :results output text :exports both
   gst-inspect-1.0 | grep mp3 | sort | head -3
 #+END_SRC
 
 #+RESULTS:
-: flump3dec:  flump3dec: Fluendo MP3 Decoder (liboil build)
 : lame:  lamemp3enc: L.A.M.E. mp3 encoder
 : libav:  avdec_mp3adufloat: libav ADU (Application Data Unit) MP3 (MPEG audio layer 3) decoder
+: libav:  avdec_mp3adu: libav ADU (Application Data Unit) MP3 (MPEG audio layer 3) decoder
 
 The [[https://gstreamer.freedesktop.org/documentation/playback/playbin.html][=playbin=]] element is an autoplugger which usually plays anything you throw at it, if you have the appropriate plugins installed.
 
@@ -92,8 +92,8 @@ Or, you can make a single frame JPEG
 If you are using the "name" property you may use the same element more than once. Just put a "." after its name, e.g. with oggmux here.
 
 #+BEGIN_SRC sh :eval no
-  gst-launch-1.0 audiotestsrc ! vorbisenc ! oggmux name=mux ! \
-    filesink location=file.ogg videotestsrc ! theoraenc ! mux.
+  gst-launch-1.0 audiotestsrc ! vorbisenc ! oggmux name=mux \
+                 ! filesink location=file.ogv videotestsrc ! theoraenc ! mux.
 #+END_SRC
 
 In the next chapter we will show you more examples with Playbin.
@@ -111,11 +111,11 @@ The [[https://gstreamer.freedesktop.org/documentation/playback/playbin.html][=pl
   # ...
   my_playbin = Gst.ElementFactory.make("playbin", None)
   assert my_playbin
-  print my_playbin
+  print(my_playbin)
 #+END_SRC
 
 #+RESULTS:
-: <__main__.GstPlayBin object at 0x7fd8e88e6aa0 (GstPlayBin at 0x1c0cf00)>
+: <__gi__.GstPlayBin object at 0x7fd8e88e6aa0 (GstPlayBin at 0x1c0cf00)>
 
 To get information about a =playbin= run:
 
@@ -203,7 +203,7 @@ Add that code to the example above and you'll get a =timeoverlay= too. We'll tal
 Here now adds a CLI example which plays music. It can be run it with:
 
 #+BEGIN_SRC sh :eval no
-  python cliplayer.py /path/to/file1.mp3 /path/to/file2.ogg
+  python playbin-example-cliplayer.py /path/to/file1.mp3 /path/to/file2.ogg
 #+END_SRC
 
 #+HTML: <a href="playbin-example-cliplayer.py">playbin-example-cliplayer.py</a>
@@ -224,10 +224,11 @@ A pipeline is a "container" where you can put other objects and when everything 
 
 ** Pipeline Audio Player
 
-The first example here starts with the audio player from section [[sec:playbin]] and switches the =playbin= for the =mad= decoding pipeline that is capable of handling MP3 streams.  Before coding it in Python it can be tested using =gst-launch=.  
+The first example here starts with the audio player from section [[sec:playbin]] and switches the =playbin= for the =mpg123audiodec= decoding pipeline that is capable of handling MP3 streams. Before coding it in Python it can be tested using =gst-launch=.
 
 #+BEGIN_SRC sh :eval no
-  gst-launch-1.0 filesrc location=file.mp3 ! mad ! audioconvert ! alsasink
+  gst-launch-1.0 filesrc location=file.mp3 ! mpegaudioparse ! mpg123audiodec \
+           ! audioconvert ! autoaudiosink
 #+END_SRC
 
 Conceptually this pipeline looks like:
@@ -257,7 +258,7 @@ Done in Python this would look like =pipeline-example.py=:
 
 ** Adding Video to the Pipeline
 
-The next example is playing MPEG2 videos. Some demuxers, such as =mpegdemux=, uses dynamic pads which are created at runtime and therefor you can't link between the demuxer and the next element in the pipeline before the pad has been created at runtime. Watch out for the =demuxer_callback()= method below.
+The next example is playing MPEG2 videos. Some demuxers, such as =mpegpsdemux=, uses dynamic pads which are created at runtime and therefor you can't link between the demuxer and the next element in the pipeline before the pad has been created at runtime. Watch out for the =demuxer_callback()= method below.
 
 #+header: :file (by-backend (latex "pipeline-branch-block.pdf") (t "pipeline-branch-block.svg"))
 #+BEGIN_SRC ditaa
@@ -292,7 +293,7 @@ The elements in a pipeline connects to each other with pads and that's what the 
 * Src, sink, pad ... oh my!
 <<sec:srcsinkpad>>
 
-As their names imply, a /src/ is an object that is "sending" data and a /sink/ is an object that is "receiving" data. These objects connect to each other with /pads/. Pads could be either /src/ or /sink/. Most elements have both /src/ and /sink/ pads. For example, the =mad= MP3 decoder element looks something like the figure below:
+As their names imply, a /src/ is an object that is "sending" data and a /sink/ is an object that is "receiving" data. These objects connect to each other with /pads/. Pads could be either /src/ or /sink/. Most elements have both /src/ and /sink/ pads. For example, the =mpg123audiodec= MP3 decoder element looks something like the figure below:
 
 
 #+header: :file (by-backend (latex "sink-src-block.pdf") (t "sink-src-block.svg"))
@@ -316,10 +317,10 @@ As their names imply, a /src/ is an object that is "sending" data and a /sink/ i
 And as always if you want to know more about highlevel elements gst-inspect is your friend:
 
 #+BEGIN_SRC sh :eval no
-  gst-inspect-1.0 mad
+  gst-inspect-1.0 mpg123audiodec
 #+END_SRC
 
-In particular, the inheritance diagram shows that =mad= is an element:
+In particular, the inheritance diagram shows that =mpg123audiodec= is an element:
 
 #+BEGIN_EXAMPLE
 GObject
@@ -327,14 +328,17 @@ GObject
        +----GstObject
              +----GstElement
                    +----GstAudioDecoder
-                         +----GstMad
-#+END_EXAMPLE 
+                         +----GstMpg123AudioDec
+#+END_EXAMPLE
 
 There are many different ways to link elements together. In =pipeline-example.py= we used the =Gst.Pipeline.add()= and the =.link()= method of the produced elements. You can also make a completely ready-to-go pipeline with the =parse_launch()= function. The many =.add()= calls in that example can be rewritten as:
 
 #+BEGIN_SRC python :eval no
-  mp3_pipeline = Gst.parse_launch("filesrc name=source ! mad name=decoder ! " \
-                                  "audioconvert name=conv ! alsasink name=sink")
+  mp3_pipeline = Gst.parse_launch(
+      "filesrc name=file-source ! mpegaudioparse name=mp3-parse"
+      " ! mpg123audiodec name=mp3-decoder ! audioconvert name=converter"
+      " ! autoaudiosink name=audio-out"
+  )
 #+END_SRC
 
 The micro-language used in this function call is that of the =gst-launch= command line program.
@@ -429,25 +433,12 @@ In the next example we will use the =playbin= from section [[subsec:playbinvideo
 The [[https://gstreamer.freedesktop.org/documentation/videomixer/index.html][=videomixer=]] element makes it possible to mix different video streams together. Here is a CLI example:
 
 #+BEGIN_SRC sh :eval no
-  gst-launch-1.0 filesrc location=tvlogo.png ! pngdec ! alphacolor ! \
-    videoconvert ! videobox border-alpha=0 alpha=0.5 top=-20 left=-200 ! \
-    videomixer name=mix ! videoconvert ! autovideosink videotestsrc ! \
-    video/x-raw, width=320, height=240 ! mix.
+  gst-launch-1.0  videotestsrc ! video/x-raw, width=320, height=240 \
+                  ! videomixer name=mix ! videoconvert ! autovideosink \
+                  filesrc location=tvlogo.png ! pngdec ! imagefreeze \
+                  ! videobox border-alpha=0 alpha=0.5 top=-10 left=-20 \
+                  ! alphacolor ! mix.
 #+END_SRC
-
-Fixme: this fails with:
-
-#+BEGIN_EXAMPLE
-Setting pipeline to PAUSED ...
-Pipeline is PREROLLING ...
-ERROR: from element /GstPipeline:pipeline0/GstFileSrc:filesrc0: Internal data flow error.
-Additional debug info:
-gstbasesrc.c(2865): gst_base_src_loop (): /GstPipeline:pipeline0/GstFileSrc:filesrc0:
-streaming task paused, reason not-negotiated (-4)
-ERROR: pipeline doesn't want to preroll.
-Setting pipeline to NULL ...
-Freeing pipeline ...
-#+END_EXAMPLE
 
 You have to make a [[./tvlogo.png][=tvlogo.png=]] image (100x100 px) to be able to run it. With the =videobox= element you can move the image around and add more alpha channels.
 
@@ -456,12 +447,7 @@ In the next example we take the now working Mpeg2-Player from section [[sec:pipe
 #+HTML: <a href="videomixer-example.py">videomixer-example.py</a>
 #+INCLUDE: videomixer-example.py src python
 
-Fixme: This fails with:
 
-#+BEGIN_EXAMPLE
-Error: Internal data flow error. gstbasesrc.c(2865): gst_base_src_loop (): /GstPipeline:player/GstFileSrc:png-source:
-streaming task paused, reason not-negotiated (-4)
-#+END_EXAMPLE
 
 * Webcam Viewer
 <<sec:webcam>>
